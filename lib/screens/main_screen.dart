@@ -1,0 +1,196 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:health/health.dart';
+import 'package:health_sleep_reader/main.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+import '../controller/main_controller.dart';
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+  late final MainController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    controller = context.read<MainController>();
+
+    // WidgetsBinding.instance.addPostFrameCallback((_) async {
+    //   await controller.authorize();
+    //
+    //   if (controller.isPermissionDenied) {
+    //     _showPermissionDialog();
+    //   }
+    // });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    super.didChangeAppLifecycleState(state);
+
+    // if (state == AppLifecycleState.resumed) {
+    //   print('move here');
+    //   await controller.checkHealthConnectStatus();
+    //   await controller.checkPermissions();
+    // }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Sleep Data")),
+      body: Consumer<MainController>(
+        builder: (context, controller, child) {
+          // Luồng 1: Kiểm tra Health Connect (Yêu cầu A)
+          switch (controller.healthStatus) {
+            case HealthConnectStatus.checking:
+              return _buildLoadingIndicator(
+                "Checking Health Connect status...",
+              );
+            case HealthConnectStatus.notInstalled:
+              return _buildNotInstalledView(controller);
+            case HealthConnectStatus.installed:
+              // Luồng 2: Kiểm tra Quyền (Yêu cầu B)
+              switch (controller.permissionStatus) {
+                case PermissionStatus.unknown:
+                  // Lần đầu vào, chưa rõ quyền
+                  return _buildPermissionRequestView(
+                    controller,
+                    "Please grant permission to read sleep data.",
+                  );
+
+                case PermissionStatus.denied:
+                  // // Bị từ chối
+                  return _buildPermissionRequestView(
+                    controller,
+                    "The app cannot display sleep data without permission.",
+                  );
+                case PermissionStatus.granted:
+                  // Luồng 3: Hiển thị Dữ liệu (Yêu cầu C)
+                  return _buildDataView(controller);
+              }
+          }
+        },
+      ),
+    );
+  }
+
+  // Widget cho Yêu cầu A (Chưa cài)
+  Widget _buildNotInstalledView(MainController controller) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 50, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text(
+              "Health Connect is required to sync sleep data. Please install it.",
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: controller.installHealthConnect,
+              child: const Text("Install Health Connect"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Widget cho Yêu cầu B (Xin quyền / Bị từ chối)
+  Widget _buildPermissionRequestView(
+    MainController controller,
+    String message,
+  ) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.lock_outline, size: 50, color: Colors.orange),
+            const SizedBox(height: 16),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                controller.requestPermissions();
+              },
+              child: Text(
+                controller.permissionStatus == PermissionStatus.denied
+                    ? "Retry Permission"
+                    : "Grant Permission",
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Widget cho Yêu cầu C (Hiển thị dữ liệu)
+  Widget _buildDataView(MainController controller) {
+    switch (controller.dataState) {
+      case DataState.loading:
+        return _buildLoadingIndicator("Fetching sleep data...");
+      case DataState.error:
+        return const Center(
+          child: Text("An error occurred while fetching data."),
+        );
+      case DataState.noData:
+        return const Center(child: Text("No Data"));
+      case DataState.loaded:
+        return ListView.builder(
+          itemCount: controller.sleepSessions.length,
+          itemBuilder: (context, index) {
+            final session = controller.sleepSessions[index];
+            final startTime = session.dateFrom;
+            final endTime = session.dateTo;
+            final duration = endTime.difference(startTime);
+
+            return ListTile(
+              leading: const Icon(Icons.bedtime_outlined),
+              title: Text(
+                "Duration: ${duration.inHours}h ${duration.inMinutes % 60}m",
+              ),
+              subtitle: Text(
+                "From: ${startTime.toLocal()}\nTo: ${endTime.toLocal()}",
+              ),
+              isThreeLine: true,
+            );
+          },
+        );
+    }
+  }
+
+  // Widget phụ: Hiển thị loading
+  Widget _buildLoadingIndicator(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text(message),
+        ],
+      ),
+    );
+  }
+}
