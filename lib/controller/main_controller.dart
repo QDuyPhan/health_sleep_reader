@@ -1,8 +1,8 @@
-import 'dart:io';
+
 
 import 'package:flutter/foundation.dart';
 import 'package:health/health.dart';
-import 'package:permission_handler/permission_handler.dart';
+
 
 enum DataState { loading, loaded, noData, error }
 
@@ -11,16 +11,13 @@ enum HealthConnectStatus { checking, installed, notInstalled }
 enum PermissionStatus { unknown, granted, denied }
 
 class MainController extends ChangeNotifier {
-  // Khởi tạo HealthFactory
   final Health _health = Health();
 
-  // Các biến trạng thái
   HealthConnectStatus _healthStatus = HealthConnectStatus.checking;
   PermissionStatus _permissionStatus = PermissionStatus.unknown;
   DataState _dataState = DataState.loading;
   List<HealthDataPoint> _sleepSessions = [];
 
-  // Getters cho UI
   HealthConnectStatus get healthStatus => _healthStatus;
 
   PermissionStatus get permissionStatus => _permissionStatus;
@@ -29,7 +26,6 @@ class MainController extends ChangeNotifier {
 
   List<HealthDataPoint> get sleepSessions => _sleepSessions;
 
-  // Các loại dữ liệu cần truy cập
   final List<HealthDataType> _types = [
     HealthDataType.SLEEP_ASLEEP,
     HealthDataType.SLEEP_SESSION,
@@ -40,7 +36,6 @@ class MainController extends ChangeNotifier {
   ];
 
   MainController() {
-    // Bắt đầu kiểm tra ngay khi provider được tạo
     initializeApp();
   }
 
@@ -49,16 +44,13 @@ class MainController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      debugPrint("initializeApp: Bắt đầu");
-      await checkHealthConnectStatus(); // Sẽ print từ hàm dưới
+      await checkHealthConnectStatus();
 
       if (_healthStatus == HealthConnectStatus.installed) {
-        debugPrint(
-          "initializeApp: Health Connect đã cài. Đang kiểm tra quyền...",
-        );
-        await checkPermissions(); // Sẽ print từ hàm dưới
+
+        await checkPermissions();
         if (_permissionStatus == PermissionStatus.granted) {
-          debugPrint("initializeApp: Đã có quyền. Đang tải dữ liệu...");
+
           await fetchSleepData();
         } else {
           debugPrint("initializeApp: Chưa có quyền.");
@@ -68,14 +60,13 @@ class MainController extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint(
-        "LỖI NGHIÊM TRỌNG trong initializeApp: $e",
-      ); // <-- RẤT QUAN TRỌNG
+        "LỖI initializeApp: $e",
+      );
       _healthStatus = HealthConnectStatus.notInstalled;
       notifyListeners();
     }
   }
 
-  // Yêu cầu A: Kiểm tra trạng thái Health Connect
   Future<void> checkHealthConnectStatus() async {
     _healthStatus = HealthConnectStatus.checking;
     notifyListeners();
@@ -87,9 +78,7 @@ class MainController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Yêu cầu A: Mở link cài đặt Health Connect
   Future<void> installHealthConnect() async {
-    // <-- THAY ĐỔI: Dùng phương thức tích hợp sẵn
     try {
       await _health.installHealthConnect();
     } catch (e) {
@@ -97,27 +86,22 @@ class MainController extends ChangeNotifier {
     }
   }
 
-  // Kiểm tra quyền (ẩn)
   Future<void> checkPermissions() async {
-    // <-- THAY ĐỔI: `hasPermissions` vẫn cần `permissions`
     final bool granted =
         await _health.hasPermissions(_types, permissions: _permissions) ??
             false;
     _permissionStatus = granted
         ? PermissionStatus.granted
-        : PermissionStatus.unknown;
+        : PermissionStatus.denied;
     notifyListeners();
   }
 
-  // Yêu cầu B: Yêu cầu quyền truy cập
   Future<void> requestPermissions() async {
-    // requestAuthorization chỉ cần danh sách types
     final bool granted = await _health.requestAuthorization(
       _types,
       permissions: _permissions,
     );
 
-    print("Health authorization result: $granted");
     _permissionStatus = granted
         ? PermissionStatus.granted
         : PermissionStatus.denied;
@@ -125,10 +109,9 @@ class MainController extends ChangeNotifier {
     if (_permissionStatus == PermissionStatus.granted) {
       await fetchSleepData();
     }
-    notifyListeners(); // Vẫn giữ notify ở đây để UI cập nhật
+    notifyListeners();
   }
 
-  // Yêu cầu C: Đọc và hiển thị dữ liệu giấc ngủ
   Future<void> fetchSleepData() async {
     if (_permissionStatus != PermissionStatus.granted) {
       _dataState = DataState.error;
@@ -151,7 +134,14 @@ class MainController extends ChangeNotifier {
       );
 
       _sleepSessions = _health.removeDuplicates(_sleepSessions);
-      _sleepSessions.map((e) => print(e.toString()));
+      debugPrint('Total number of data points: ${_sleepSessions.length}. '
+          '${_sleepSessions.length > 100 ? 'Only showing the first 100.' : ''}');
+
+      // sort the data points by date
+      _sleepSessions.sort((a, b) => b.dateTo.compareTo(a.dateTo));
+      for (var data in _sleepSessions) {
+        debugPrint(data.toJson().toString());
+      }
 
       if (_sleepSessions.isEmpty) {
         _dataState = DataState.noData;

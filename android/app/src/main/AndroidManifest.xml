@@ -1,25 +1,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Required Permissions -->
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
+
+
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
     <uses-permission android:name="android.permission.health.READ_SLEEP_SEGMENT" />
     <uses-permission android:name="android.permission.health.READ_SLEEP_SESSION" />
-
-    <!-- Health Connect Permissions -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-permission android:name="android.permission.health.WRITE_STEPS" />
     <uses-permission android:name="android.permission.health.READ_DISTANCE" />
     <uses-permission android:name="android.permission.health.WRITE_DISTANCE" />
     <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
     <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED" />
-<!--    &lt;!&ndash; Legacy Google Fit permissions (as fallback) &ndash;&gt;-->
-<!--    <uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />-->
+
     <queries>
-        <!-- Cho phép app phát hiện Health Connect -->
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
     <application
@@ -42,17 +40,14 @@
                 android:resource="@style/NormalTheme"
                 />
 
-            <!-- Intent filter mặc định để khởi chạy app -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- 👇 Thêm phần này để hỗ trợ Health Connect -->
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
-            <!-- 👆 Kết thúc phần thêm mới -->
 
         </activity>
 

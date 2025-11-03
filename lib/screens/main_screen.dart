@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:health/health.dart';
-import 'package:health_sleep_reader/main.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -22,14 +20,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     controller = context.read<MainController>();
-
-    // WidgetsBinding.instance.addPostFrameCallback((_) async {
-    //   await controller.authorize();
-    //
-    //   if (controller.isPermissionDenied) {
-    //     _showPermissionDialog();
-    //   }
-    // });
   }
 
   @override
@@ -42,11 +32,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     super.didChangeAppLifecycleState(state);
 
-    // if (state == AppLifecycleState.resumed) {
-    //   print('move here');
-    //   await controller.checkHealthConnectStatus();
-    //   await controller.checkPermissions();
-    // }
+    if (state == AppLifecycleState.resumed) {
+      await controller.checkHealthConnectStatus();
+      if (controller.healthStatus == HealthConnectStatus.installed) {
+        await controller.checkPermissions();
+      }
+    }
+
   }
 
   @override
@@ -55,7 +47,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       appBar: AppBar(title: const Text("Sleep Data")),
       body: Consumer<MainController>(
         builder: (context, controller, child) {
-          // Luồng 1: Kiểm tra Health Connect (Yêu cầu A)
           switch (controller.healthStatus) {
             case HealthConnectStatus.checking:
               return _buildLoadingIndicator(
@@ -64,23 +55,18 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             case HealthConnectStatus.notInstalled:
               return _buildNotInstalledView(controller);
             case HealthConnectStatus.installed:
-              // Luồng 2: Kiểm tra Quyền (Yêu cầu B)
               switch (controller.permissionStatus) {
                 case PermissionStatus.unknown:
-                  // Lần đầu vào, chưa rõ quyền
                   return _buildPermissionRequestView(
                     controller,
                     "Please grant permission to read sleep data.",
                   );
-
                 case PermissionStatus.denied:
-                  // // Bị từ chối
                   return _buildPermissionRequestView(
                     controller,
                     "The app cannot display sleep data without permission.",
                   );
                 case PermissionStatus.granted:
-                  // Luồng 3: Hiển thị Dữ liệu (Yêu cầu C)
                   return _buildDataView(controller);
               }
           }
@@ -89,7 +75,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  // Widget cho Yêu cầu A (Chưa cài)
   Widget _buildNotInstalledView(MainController controller) {
     return Center(
       child: Padding(
@@ -114,7 +99,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  // Widget cho Yêu cầu B (Xin quyền / Bị từ chối)
+
   Widget _buildPermissionRequestView(
     MainController controller,
     String message,
@@ -145,7 +130,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  // Widget cho Yêu cầu C (Hiển thị dữ liệu)
   Widget _buildDataView(MainController controller) {
     switch (controller.dataState) {
       case DataState.loading:
@@ -164,23 +148,77 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             final startTime = session.dateFrom;
             final endTime = session.dateTo;
             final duration = endTime.difference(startTime);
+            final hours = duration.inHours;
+            final minutes = duration.inMinutes % 60;
+            final dateText = DateFormat('EEE, d MMM', 'vi').format(startTime);
+            final start = DateFormat('HH:mm').format(startTime);
+            final end = DateFormat('HH:mm').format(endTime);
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.indigo[50],
+                      child: const Icon(Icons.bedtime, color: Colors.indigo, size: 28),
+                    ),
+                    const SizedBox(width: 16),
 
-            return ListTile(
-              leading: const Icon(Icons.bedtime_outlined),
-              title: Text(
-                "Duration: ${duration.inHours}h ${duration.inMinutes % 60}m",
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "$start – $end",
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+
+                          const Text(
+                            "Ngủ",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+
+                          Text(
+                            "Thời gian ngủ: ${hours}giờ ${minutes}phút",
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+
+                          Text(
+                            dateText,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              subtitle: Text(
-                "From: ${startTime.toLocal()}\nTo: ${endTime.toLocal()}",
-              ),
-              isThreeLine: true,
             );
           },
         );
     }
   }
 
-  // Widget phụ: Hiển thị loading
   Widget _buildLoadingIndicator(String message) {
     return Center(
       child: Column(
